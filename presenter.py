@@ -9,14 +9,18 @@ class Presenter:
     Optionally applies blurring to detected areas (enabled by default).
     """
 
-    def __init__(self, presenter_queue: mp.Queue, enable_blurring: bool = True):
+    def __init__(
+            self,
+            presenter_queue: mp.Queue,
+            enable_blurring: bool = True):
         """
         Initializes the Presenter with the provided queue and blurring option.
 
         Args:
             presenter_queue (mp.Queue): A multiprocessing queue for receiving
             frames with detections.
-            enable_blurring (bool): Flag to enable or disable blurring of detections.
+            enable_blurring (bool): Flag to enable or disable blurring
+                of detections.
         """
         self.presenter_queue = presenter_queue
         self.enable_blurring = enable_blurring

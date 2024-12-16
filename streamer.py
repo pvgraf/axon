@@ -27,7 +27,9 @@ class Streamer:
         cap = cv2.VideoCapture(self.video_path)
         if not cap.isOpened():
             self.detector_queue.put(None)
-            raise RuntimeError(f"Error: Unable to open video file {self.video_path}")
+            raise RuntimeError(
+                f"Error: Unable to open video file {self.video_path}"
+            )
 
         # Continuously read frames from the video until the end
         while cap.isOpened():
