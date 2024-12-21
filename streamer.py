@@ -1,47 +1,47 @@
 import cv2
-import multiprocessing as mp
+from multiprocessing.connection import Connection
 
 
 class Streamer:
-    """
-    A class for streaming video data from a specified video file.
-    """
-
-    def __init__(self, video_path: str, detector_queue: mp.Queue):
+    def __init__(self, video_path: str, conn: Connection) -> None:
         """
-        Initializes the Streamer with the given video path and detector queue.
+        Initializes the Streamer.
 
-        Args:
-            video_path (str): The path to the video file.
-            detector_queue (mp.Queue): A multiprocessing queue for sending
-                frames to the detector.
+        :param video_path: Path to the video file to be streamed.
+        :param conn: Connection object for sending frames to another process.
         """
         self.video_path = video_path
-        self.detector_queue = detector_queue
+        self.conn = conn
 
     def run(self) -> None:
         """
-        Starts reading the video file and sending frames to the detector queue.
+        Main method executed in the streamer process.
+        It reads frames from the video file and sends them to
+        the connected process.
         """
-        # Attempt to open the video file
+        # Open the video file
         cap = cv2.VideoCapture(self.video_path)
-        if not cap.isOpened():
-            self.detector_queue.put(None)
-            raise RuntimeError(
-                f"Error: Unable to open video file {self.video_path}"
-            )
 
-        # Continuously read frames from the video until the end
-        while cap.isOpened():
+        # Check if the video was opened successfully
+        if not cap.isOpened():
+            print(f"Error: Could not open video file: {self.video_path}")
+            # Send None to indicate failure
+            self.conn.send(None)
+            self.conn.close()
+            return
+
+        # Read frames from the video
+        while True:
             ret, frame = cap.read()
             if not ret:
+                # Exit loop if no frame is returned
                 break
 
-            # Send the frame to the detector queue
-            self.detector_queue.put(frame)
+            self.conn.send(frame)
 
-        # Release the video capture object and signal completion
+        # Release the video capture object
         cap.release()
 
-        # Signal that there are no more frames to process
-        self.detector_queue.put(None)
+        # Signal that the stream is finished
+        self.conn.send(None)
+        self.conn.close()

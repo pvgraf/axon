@@ -1,59 +1,63 @@
 import cv2
 import imutils
+import time
 import multiprocessing as mp
-from typing import Optional, Tuple, List
+from typing import Tuple, List
 
 
 class Detector:
-    """
-    A class for detecting motion in video frames.
-
-    Note:
-        The implementation is taken from the provided example;
-        only the usage of the queue has been added.
-    """
-
-    def __init__(self, detector_queue: mp.Queue, presenter_queue: mp.Queue):
+    def __init__(
+        self, conn_in: mp.connection.Connection,
+        conn_out: mp.connection.Connection
+    ) -> None:
         """
-        Initializes the Detector with the provided queues.
+        Initializes the Detector.
 
-        Args:
-            detector_queue (mp.Queue): A multiprocessing queue for receiving
-                frames from the Streamer.
-            presenter_queue (mp.Queue): A multiprocessing queue for sending
-                frames to the Presenter.
+        :param conn_in: Connection for receiving frames from another process.
+        :param conn_out: Connection for sending detection
+            results to another process.
         """
-        self.detector_queue = detector_queue
-        self.presenter_queue = presenter_queue
+        self.conn_in = conn_in
+        self.conn_out = conn_out
         self.counter = 0
-        self.prev_frame: Optional[cv2.Mat] = None
+        self.prev_frame = None
 
     def run(self) -> None:
         """
-        Processes video frames to detect motion and send detections
-            to the presenter.
+        Main method executed in the detector process.
+        It receives frames, processes them, and sends detection results.
         """
         while True:
-            # Retrieve a frame from the detector queue
-            frame: Optional[cv2.Mat] = self.detector_queue.get()
+            # Receive frame from the input connection
+            frame = self.conn_in.recv()
+
+            # Check for termination signal
             if frame is None:
-                self.presenter_queue.put(None)
+                self.conn_out.send(None)  # Signal that processing is done
                 break
 
+            start_time = time.time()  # Start time for processing
+
+            # Convert the frame to grayscale
             gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
             if self.counter == 0:
-                self.prev_frame = gray_frame
+                self.prev_frame = gray_frame  # Initialize the first frame
                 self.counter += 1
             else:
+                # Compute the difference between the current frame and
+                # the previous frame
                 diff = cv2.absdiff(gray_frame, self.prev_frame)
                 thresh = cv2.threshold(diff, 25, 255, cv2.THRESH_BINARY)[1]
                 thresh = cv2.dilate(thresh, None, iterations=2)
+
+                # Find contours in the thresholded image
                 cnts = cv2.findContours(
                     thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
                 )
                 cnts = imutils.grab_contours(cnts)
 
+                # Initialize a list to hold detections
                 detections: List[Tuple[int, int, int, int]] = []
                 for contour in cnts:
                     # Compute the bounding rectangle for each detected contour
@@ -62,8 +66,16 @@ class Detector:
                     # list
                     detections.append((x, y, w, h))
 
+                # Update previous frame
                 self.prev_frame = gray_frame
                 self.counter += 1
 
-                # Send the frame and detections to the presenter queue
-                self.presenter_queue.put((frame, detections))
+                # Send the frame and detections to the output connection
+                self.conn_out.send((frame, detections))
+
+            # Measure processing time
+            end_time = time.time()
+            print(
+                "Detector processing time: ",
+                f"{(end_time - start_time) * 1000:.2f} ms",
+            )
