@@ -4,6 +4,10 @@ import time
 import multiprocessing as mp
 from typing import Tuple, List
 
+import logger
+
+logger = logger.get_logger(__name__)
+
 
 class Detector:
     def __init__(
@@ -75,7 +79,7 @@ class Detector:
 
             # Measure processing time
             end_time = time.time()
-            print(
-                "Detector processing time: ",
-                f"{(end_time - start_time) * 1000:.2f} ms",
+            logger.debug(
+                "Detector processing time: %.2f ms", (end_time - start_time) * 1000
             )
+

@@ -4,6 +4,9 @@ import argparse
 from streamer import Streamer
 from detector import Detector
 from presenter import Presenter
+import logger
+
+logger = logger.get_logger(__name__)
 
 
 def main(video_path: str, blurring: bool):
@@ -41,13 +44,10 @@ def main(video_path: str, blurring: bool):
 
 if __name__ == "__main__":
     # Set up argument parsing
-    parser = argparse.ArgumentParser(
-        description="Motion Detection Application (AXON)"
-    )
+    parser = argparse.ArgumentParser(description="Motion Detection Application (AXON)")
 
     parser.add_argument(
-        "-v", "--video", type=str, required=True,
-        help="Path to the input video file"
+        "-v", "--video", type=str, required=True, help="Path to the input video file"
     )
 
     parser.add_argument(
