@@ -1,22 +1,56 @@
 import cv2
 from multiprocessing.connection import Connection
+from pydantic import BaseModel, Field
 
 import logger
 
 logger = logger.get_logger(__name__)
 
 
+class StreamerConfig(BaseModel):
+    """
+    Configuration class for the Streamer, including parameters for video
+        streaming and connection details.
+
+    Attributes:
+        conn (Connection): Connection object for data exchange between
+            processes.
+        video_path (str): An string representing the path or identifier of
+            the video to be streamed.
+    """
+
+    # Connection object for receiving or sending data in multiprocessing
+    # context
+    conn: Connection
+    video_path: str = Field()
+
+    class Config:
+        """
+        Pydantic configuration class.
+
+        Attributes:
+            arbitrary_types_allowed (bool): If set to True, allows fields
+                to be of arbitrary types,
+            including non-Pydantic types, like `multiprocessing.Connection`.
+        """
+
+        # Allow the use of arbitrary types in the model, which is necessary
+        # for `Connection` type
+        arbitrary_types_allowed = True
+
+
 class Streamer:
-    def __init__(self, video_path: str, conn: Connection) -> None:
+    def __init__(self, config: StreamerConfig) -> None:
         """
         Initializes the Streamer.
 
-        :param video_path: Path to the video file to be streamed.
-        :param conn: Connection object for sending frames to another process.
+        :param config: StreamerConfig object containing configuration settings.
         """
-        self.video_path = video_path
-        self.conn = conn
-        logger.info("Streamer initialized with video path: %s", video_path)
+        self.video_path = config.video_path
+        self.conn = config.conn
+        logger.info(
+            "Streamer initialized with video path: %s", self.video_path
+        )
 
     def run(self) -> None:
         """
@@ -31,7 +65,9 @@ class Streamer:
 
         # Check if the video was opened successfully
         if not cap.isOpened():
-            logger.error("Error: Could not open video file: %s", self.video_path)
+            logger.error(
+                "Error: Could not open video file: %s", self.video_path
+            )
             # Send None to indicate failure
             self.conn.send(None)
             self.conn.close()

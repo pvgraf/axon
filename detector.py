@@ -3,26 +3,50 @@ import imutils
 import time
 import multiprocessing as mp
 from typing import Tuple, List
+from pydantic import BaseModel
 
 import logger
 
 logger = logger.get_logger(__name__)
 
 
+class DetectorConfig(BaseModel):
+    """
+    Configuration class for the Detector, designed for handling input
+        and output connections in a multiprocessing context.
+
+    Note: All validations are disabled due to the nature of the input types.
+        Pydantic cannot generate a custom schema for these types.
+
+    Attributes:
+        conn_in (mp.connection.Connection): Incoming connection for receiving
+            data from other processes.
+        conn_out (mp.connection.Connection): Outgoing connection for sending
+            data to other processes.
+    """
+
+    conn_in: mp.connection.Connection
+    conn_out: mp.connection.Connection
+
+    class Config:
+        """
+        Pydantic configuration class for customizing model behavior.
+        """
+
+        # Allow the use of arbitrary types in the model, necessary for
+        # using Connection type.
+        arbitrary_types_allowed = True
+
+
 class Detector:
-    def __init__(
-        self, conn_in: mp.connection.Connection,
-        conn_out: mp.connection.Connection
-    ) -> None:
+    def __init__(self, config: DetectorConfig) -> None:
         """
         Initializes the Detector.
 
-        :param conn_in: Connection for receiving frames from another process.
-        :param conn_out: Connection for sending detection
-            results to another process.
+        :param config: DetectorConfig object containing configuration settings.
         """
-        self.conn_in = conn_in
-        self.conn_out = conn_out
+        self.conn_in = config.conn_in
+        self.conn_out = config.conn_out
         self.counter = 0
         self.prev_frame = None
 
@@ -80,6 +104,6 @@ class Detector:
             # Measure processing time
             end_time = time.time()
             logger.debug(
-                "Detector processing time: %.2f ms", (end_time - start_time) * 1000
+                "Detector processing time: %.2f ms",
+                (end_time - start_time) * 1000
             )
-

@@ -1,27 +1,59 @@
 import cv2
 import time
-import multiprocessing as mp
+from multiprocessing.connection import Connection
+from pydantic import BaseModel, Field
 
 import logger
 
 logger = logger.get_logger(__name__)
 
 
+class PresenterConfig(BaseModel):
+    """
+    Configuration class for the Presenter,
+
+    Attributes:
+        conn (Connection): Connection object for data exchange between
+            processes.
+        enable_blurring (bool): Flag indicating whether blurring is enabled
+            in the video stream.
+    """
+    conn: Connection
+    enable_blurring: str = Field(default=True)
+
+    class Config:
+        """
+        Pydantic configuration class.
+        """
+        # Allow the use of arbitrary types, such as multiprocessing.Connection
+        arbitrary_types_allowed = True
+
+    # The connection validation method can be added here for additional
+    # checking (temporarily commented out)
+    # @field_validator("conn")
+    # @classmethod
+    # def validate_connection(cls, conn):
+    #     if not isinstance(conn, Connection):
+    #         raise ValueError(
+    #             "Connection must be an instance of "
+    #             "multiprocessing.connection.Connection"
+    #         )
+    #     return conn
+
+
 class Presenter:
-    def __init__(
-        self, conn: mp.connection.Connection, enable_blurring: bool = True
-    ) -> None:
+    def __init__(self, config: PresenterConfig) -> None:
         """
         Initializes the Presenter.
 
-        :param conn: Connection for receiving processed data
-            from another process.
-        :param enable_blurring: Flag to enable/disable blurring of
-            detected areas.
+        :param config: PresenterConfig object containing configuration
+            settings.
         """
-        self.conn = conn
-        self.enable_blurring = enable_blurring
-        logger.info("Presenter initialized with blurring: %s", self.enable_blurring)
+        self.conn = config.conn
+        self.enable_blurring = config.enable_blurring
+        logger.info(
+            "Presenter initialized with blurring: %s", self.enable_blurring
+        )
 
     def run(self) -> None:
         """
@@ -37,11 +69,16 @@ class Presenter:
 
                 # Check for termination signal
                 if data is None:
-                    logger.info("Termination signal received. Exiting presenter process.")
+                    logger.info(
+                        "Termination signal received. "
+                        "Exiting presenter process."
+                    )
                     break
 
                 frame, detections = data
-                logger.debug("Frame received with %d detections.", len(detections))
+                logger.debug(
+                    "Frame received with %d detections.", len(detections)
+                )
 
                 # Draw bounding boxes for detections
                 for x, y, w, h in detections:
@@ -54,7 +91,8 @@ class Presenter:
                         roi = frame[y: y + h, x: x + w]
                         blurred_roi = cv2.GaussianBlur(roi, (15, 15), 0)
                         frame[y: y + h, x: x + w] = blurred_roi
-                        # logger.debug("Applied blurring to detection at (%d, %d, %d, %d).", x, y, w, h)
+                        # logger.debug("Applied blurring to detection at
+                        # (%d, %d, %d, %d).", x, y, w, h)
 
                 # Add timestamp to the frame
                 timestamp = time.strftime("%H:%M:%S")
